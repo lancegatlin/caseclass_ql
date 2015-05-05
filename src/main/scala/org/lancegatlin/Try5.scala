@@ -122,4 +122,9 @@ object Try5 {
     loop(e)
     builder.result()
   }
+
+  // TODO: this doesn't work if there is more than one schema involved
+  // such as when a joined collection returns a tuple
+
+  // TODO: for in-memory db, translating this to a C => Boolean is preferred
 }
