@@ -64,6 +64,7 @@ object Try4a {
 
   implicit class PimpMyAst[A](val self: Ast[A]) extends AnyVal {
     def and[B](other: Ast[B]) = And(self, other)
+    def unary_! = Not(self)
   }
 
   val ast =
@@ -122,6 +123,10 @@ object Try4a {
           aToSql.apply(ast1,builder)
           builder.append(" AND ")
           bToSql.apply(ast2,builder)
+        case Not(ast1) =>
+          builder.append("Not(")
+          apply(ast1, builder)
+          builder.append(")")
 
         case _ => throw new UnsupportedOperationException
       }
