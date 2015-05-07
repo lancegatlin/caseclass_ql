@@ -3,7 +3,7 @@ package org.lancegatlin
 import scala.language.higherKinds
 import scala.language.existentials
 
-object Try6 {
+object Try6b {
   case class Person(id: Int, name: String, age: Int)
 
   trait Schema[C] {
@@ -54,7 +54,9 @@ object Try6 {
   sealed trait Ast[D,C]
   case class EqualityTest[D,C,A](op: EqualityOps, _1: Field[D,C,A], _2: Value[D,C,A]) extends Ast[D,C]
   case class ComparisonTest[D,C,A](op: ComparisonOps, _1: Field[D,C,A], _2: Value[D,C,A])(implicit val o: Ordering[A]) extends Ast[D,C]
-  case class R[D,C](r:Relator,_1: Ast[D,C], _2:Ast[D,C]) extends Ast[D,C]
+  case class And[D,C](_1: Ast[D,C], _2:Ast[D,C]) extends Ast[D,C]
+  case class Or[D,C](_1: Ast[D,C], _2:Ast[D,C]) extends Ast[D,C]
+  case class Not[D,C](_1: Ast[D,C]) extends Ast[D,C]
 
   implicit class PimpMyField[C,A](val self: Schema[C]#Field[A]) extends AnyVal {
     def ===[D](value: A)(implicit d:ToDialect[A,D]) =
@@ -68,23 +70,17 @@ object Try6 {
   }
 
   implicit class PimpMyAst[D,C](val self: Ast[D,C]) extends AnyVal {
-    def and(other: Ast[D,C]) = R(And,self, other)
-    def or(other: Ast[D,C]) = R(Or,self, other)
+    def and(other: Ast[D,C]) = And(self, other)
+    def or(other: Ast[D,C]) = Or(self, other)
   }
-
-  trait Dummy
-  case object Dummy extends Dummy
 
   object InMemoryDialect {
-    implicit object ToInt extends ToDialect[Int,Dummy] {
-      override def apply(v1: Int): Dummy = ???
-    }
-    implicit object ToString extends ToDialect[String,Dummy] {
-      override def apply(v1: String) = ???
+    implicit def ignored[A] = new ToDialect[A,Any] {
+      override def apply(v1: A) = v1
     }
   }
 
-  val ast : Ast[Dummy,Person] =
+  val ast : Ast[Any,Person] =
   {
     import PersonSchema._
     import InMemoryDialect._
@@ -92,15 +88,15 @@ object Try6 {
   }
 
 
-  val ast2 : Ast[Dummy,Person] = {
+  val ast2 : Ast[Any,Person] = {
     import PersonSchema._
     import InMemoryDialect._
     id === age
   }
 
   // a macro will work better but just a proof of concept to show its possible
-  def astToInMemory[C](ast: Ast[Dummy,C]) : C => Boolean = {
-    def loop(ast1: Ast[Dummy,C]) : C => Boolean = {
+  def astToInMemory[C](ast: Ast[Any,C]) : C => Boolean = {
+    def loop(ast1: Ast[Any,C]) : C => Boolean = {
       ast1 match {
         case EqualityTest(op,_1,_2) =>
           op match {
@@ -124,15 +120,21 @@ object Try6 {
               }
             case _ => ???
           }
-        case R(relator,_1,_2) =>
+        case And(_1,_2) =>
+          val f1 : C => Boolean = loop(_1)
+          val f2 : C => Boolean = loop(_2)
+
+          { c:C => f1(c) && f2(c) }
+        case Or(_1,_2) =>
           val f1 = loop(_1)
           val f2 = loop(_2)
-          relator match {
-            case And =>
-              { c:C => f1(c) && f2(c) }
-            case Or =>
-              { c:C => f2(c) || f2(c) }
-          }
+
+          { c:C => f2(c) || f2(c) }
+
+        case Not(_1) =>
+          val f1 = loop(_1)
+
+          { c:C => !f1(c) }
       }
     }
     loop(ast)

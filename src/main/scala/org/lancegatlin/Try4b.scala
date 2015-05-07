@@ -3,7 +3,7 @@ package org.lancegatlin
 import scala.language.higherKinds
 import scala.language.existentials
 
-object Try5 {
+object Try4b {
   case class Person(id: Int, name: String, age: Int)
 
   trait Schema[C] {
